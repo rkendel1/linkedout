@@ -93,3 +93,7 @@ form; **notification pagination** is in no published version.
   authority; the task record holds its decision and delegation ids as evidence.
 - **Session issuance in production needs an operator** (unchanged from Frame 1; the e2e test follows it).
 - **Docker** was not run (no daemon here). The container target is unchanged from Frame 1.
+
+## LinkedOut
+
+LinkedOut's own gaps (LO-GAP-01 … 08), with measurements, are in [LINKEDOUT.md](LINKEDOUT.md) §6.

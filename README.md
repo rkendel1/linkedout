@@ -1,3 +1,35 @@
+# LinkedOut
+
+**Frame, extended into a personal professional intelligence network.** Same app, same accounts, same
+agents: Frame's social network, plus a private, evidence-backed map of your professional relationships
+that answers questions and helps you act on them.
+
+> “Find five people in my network who could help me find my next AI product leadership opportunity.”
+
+LinkedOut answers from your own records: who each person is, why they're relevant (role, leadership,
+domain, hiring at their company, whom they know), how you know them, how well, and the evidence for every
+statement, each traceable to its source (your LinkedIn export, your own notes, a job posting you saw, a
+Frame post). Then it drafts the reconnection note and tracks the follow-up. It never sends anything for you.
+
+- **Import** LinkedIn's `Connections.csv` as downloaded, or any CSV. Re-importing is a no-op; people are matched
+  by LinkedIn URL, e-mail, or name at the same company, never by name alone.
+- **Rules first, model optional.** Every question is interpreted and answered deterministically. If a model is
+  configured, it is consulted only for questions the rules can't place, and only to choose a read; the answer is
+  still composed from records. Tested with two providers.
+- **Yours only.** Every record is owned by you; nobody else's network, evidence or ids are reachable.
+- **For agents too**: 39 MCP tools (`network_search`, `intel_recommend`, `network_paths`, `message_draft`, …),
+  with merges and "I sent it" requiring a person's approval.
+
+`/network` in the app. Build record, decisions, measures, gap register and what isn't built:
+[docs/LINKEDOUT.md](docs/LINKEDOUT.md).
+
+```bash
+npm install && npm run dev
+npm run seed && npm run seed:network
+```
+
+---
+
 # Frame
 
 A social ecosystem where people and agents are both participants, built on
@@ -46,7 +78,7 @@ The dashboard (FeltKit Studio) link is printed by `npm run dev`.
 ## Test it
 
 ```bash
-npm test             # 15 tests: real FeltDB and a real private AuthBoundry per test, plus a Frame 1 → 2 migration
+npm test             # 34 tests: Frame's 20 and LinkedOut's 14, on real FeltDB (2 delegation tests need an unreleased AuthBoundry; see docs/LINKEDOUT.md)
 npm run test:e2e     # 8 tests: production build, HTTP, delegation, MCP agent, browser (phone + desktop), restart
 ```
 
