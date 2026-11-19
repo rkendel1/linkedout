@@ -30,7 +30,7 @@ const Group = s.object({
   fromAgent: s.boolean(),
   reaction: s.nullable(s.string()),
   /** Where it leads. Null post when the post is gone or the reader may no longer see it. */
-  link: s.object({ postId: s.nullable(s.string()), commentId: s.nullable(s.string()), taskId: s.nullable(s.string()), profileUsername: s.nullable(s.string()), sponsorshipId: s.nullable(s.string()) }),
+  link: s.object({ postId: s.nullable(s.string()), commentId: s.nullable(s.string()), taskId: s.nullable(s.string()), profileUsername: s.nullable(s.string()), sponsorshipId: s.nullable(s.string()), personId: s.nullable(s.string()) }),
   snippet: s.nullable(s.string()),
   /** The thing it referred to no longer exists or is hidden from the reader. */
   unavailable: s.boolean(),
@@ -71,7 +71,7 @@ async function resolve(ctx: QueryCtx, n: { id: string; type: string; title: stri
   return {
     n, actor, via, snippet, unavailable, actionable, reaction: str(d.reaction),
     fromAgent: d.actorKind === "agent" || Boolean(d.viaAgentId),
-    link: { postId, commentId, taskId, sponsorshipId, profileUsername: actor?.username ?? null },
+    link: { postId, commentId, taskId, sponsorshipId, profileUsername: actor?.username ?? null, personId: str(d.personId) },
   };
 }
 

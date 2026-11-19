@@ -22,6 +22,7 @@ export const NOTIFICATION_TYPES = [
   "agent.permission_needed",
   "agent.sponsor_requested",
   "agent.sponsor_accepted",
+  "network.followup_due",
 ] as const;
 
 /** Reactions, for posts and comments alike. */
@@ -69,7 +70,9 @@ export const app = feltkit({
   description: "Frame: a social ecosystem where people and agents share, discover, react, converse and work together.",
   roles: {
     // People. `frame.delegate` lets a person grant, revoke and assign work to agents.
-    member: [...SOCIAL, "frame.delegate"],
+    // network.*: their own professional network. feltkit.agent.read/write: their assistant's turns are
+    // recorded as FeltKit agent tasks, and its reads are proposals that run as them (feltkit/assistant.ts).
+    member: [...SOCIAL, "frame.delegate", "network.read", "network.write", "feltkit.agent.read", "feltkit.agent.write"],
     // External agents (MCP sessions of type "agent"): the same social authority as a person, no delegation.
     agent: SOCIAL,
     // Frame's resident agents (app.agent): read, write as themselves, notify.
@@ -107,12 +110,18 @@ export const app = feltkit({
       },
     },
     notifications: { types: [...NOTIFICATION_TYPES] },
+    // The environment's model (any provider, chosen by the operator: Studio → Models or `feltkit model set`).
+    // Optional: LinkedOut answers every question without it; the assistant asks it only to route a question
+    // the rules could not interpret (feltkit/assistant.ts).
+    intelligence: true,
     jobs: {
       handlers: {
         // Removing a deleted post's photo runs after the delete commits, as the person who deleted it.
         "media.release": "posts:releaseMedia",
         // A delegated task that is due hands itself to Concierge.
         "task.due": "tasks:due",
+        // A follow-up's time came: remind its owner, if it is still open.
+        "followup.due": "followups:due",
       },
     },
   },
@@ -301,6 +310,252 @@ export const tasks = app.collection(
  * also the person it was done for.
  */
 export const activity = app.auditTrail("activity", { subjects: ["profile"] as const, description: "Attributable activity of every participant." });
+
+// ---------------------------------------------------------------------------------------------------
+// LinkedOut: personal professional intelligence.
+//
+// A person's professional network is private to them. Every record below carries `ownerId`, the
+// principal id of the person whose network it is, and is read and written only as that principal
+// (`owner` declarations and owner-filtered reads; tests prove isolation). Facts are time-aware and
+// never overwritten: a new job is a new employment, a correction supersedes evidence, a merge leaves
+// the merged record in place pointing at the survivor. Strength, paths, opportunities and rankings
+// are computed from these records when read, never stored (no second source of truth).
+
+/** Where a fact came from. Inferences and model output are kinds of their own, never "observed". */
+export const EVIDENCE_KINDS = ["observed", "imported", "user_provided", "inferred", "generated"] as const;
+export const SOURCE_TYPES = ["linkedin_export", "csv_import", "user", "frame_profile", "frame_follow", "frame_post", "public_url", "model"] as const;
+export const SENIORITY = ["ic", "manager", "director", "vp", "cxo", "founder", "unknown"] as const;
+export const FUNCTIONS = ["product", "engineering", "design", "data", "research", "sales", "marketing", "operations", "finance", "people", "executive", "other"] as const;
+
+/** Someone in the owner's professional world: a connection, a former colleague, or a person they know of. */
+export const people = app.collection(
+  "people",
+  {
+    ownerId: s.string(),
+    displayName: s.string({ minLength: 1, maxLength: 120 }),
+    /** Lowercase, accent-free "first last": what entity resolution compares. */
+    nameKey: s.string({ maxLength: 120 }),
+    headline: s.optional(s.string({ maxLength: 300 })),
+    location: s.optional(s.string({ maxLength: 120 })),
+    /** The Frame profile this person is, when the owner linked it (or it came from their Frame follows). */
+    profileId: s.optional(s.string()),
+    /** "merged": reconciled into `mergedInto`; kept so evidence about it stays interpretable. */
+    status: s.enum(["active", "merged"]),
+    mergedInto: s.optional(s.string()),
+    createdAt: s.number(),
+    updatedAt: s.number(),
+  },
+  { indexes: [{ fields: ["ownerId", "status", "createdAt"] }, { fields: ["ownerId", "nameKey"] }, { fields: ["ownerId", "profileId"] }], search: ["displayName", "headline"] },
+);
+
+/** Strong identifiers (an e-mail, a LinkedIn URL, a Frame profile), one owner each: what resolution matches on first. */
+export const identifiers = app.collection(
+  "identifiers",
+  { ownerId: s.string(), personId: s.ref(people), kind: s.enum(["email", "linkedin", "frame"]), value: s.string({ maxLength: 300 }), evidenceId: s.string(), createdAt: s.number() },
+  { unique: [["ownerId", "kind", "value"]], indexes: [{ fields: ["ownerId", "personId"] }] },
+);
+
+export const organizations = app.collection(
+  "organizations",
+  {
+    ownerId: s.string(),
+    name: s.string({ minLength: 1, maxLength: 160 }),
+    nameKey: s.string({ maxLength: 160 }),
+    domain: s.optional(s.string({ maxLength: 200 })),
+    industry: s.optional(s.string({ maxLength: 120 })),
+    description: s.optional(s.string({ maxLength: 500 })),
+    createdAt: s.number(),
+  },
+  { unique: [["ownerId", "nameKey"]], indexes: [{ fields: ["ownerId", "createdAt"] }], search: ["name", "industry"] },
+);
+
+/** A position someone held. A new job is a new record; the old one ends (current: false), never disappears. */
+export const employments = app.collection(
+  "employments",
+  {
+    ownerId: s.string(),
+    personId: s.ref(people),
+    organizationId: s.ref(organizations),
+    title: s.string({ maxLength: 200 }),
+    seniority: s.enum(SENIORITY),
+    function: s.enum(FUNCTIONS),
+    /** ISO dates, as precise as the source ("2021", "2021-04", "2021-04-12"). */
+    startDate: s.optional(s.string({ maxLength: 10 })),
+    endDate: s.optional(s.string({ maxLength: 10 })),
+    current: s.boolean(),
+    evidenceId: s.string(),
+    /** The evidence that ended it (a later position observed elsewhere, or the owner's correction). */
+    endedByEvidenceId: s.optional(s.string()),
+    createdAt: s.number(),
+  },
+  { indexes: [{ fields: ["ownerId", "personId"] }, { fields: ["ownerId", "organizationId"] }, { fields: ["ownerId", "current"] }] },
+);
+
+/** A canonical skill or domain on a person, with the evidence for it. Indexed by skill (FRAME-GAP-14's pattern). */
+export const personSkills = app.collection(
+  "personSkills",
+  { ownerId: s.string(), personId: s.ref(people), skill: s.string({ minLength: 1, maxLength: 60 }), evidenceId: s.string(), confidence: s.number({ minimum: 0, maximum: 1 }), createdAt: s.number() },
+  { unique: [["ownerId", "personId", "skill"]], indexes: [{ fields: ["ownerId", "skill"] }] },
+);
+
+/**
+ * How the owner knows a person, one record per source. "direct": they know or follow them (an
+ * imported connection, a Frame follow, the owner's word); "historical": a past working relationship
+ * the owner recorded; "suggested": an inference, never presented as established. Second-degree and
+ * public associations are computed, not stored.
+ */
+export const relationships = app.collection(
+  "relationships",
+  {
+    ownerId: s.string(),
+    personId: s.ref(people),
+    type: s.enum(["direct", "historical", "suggested"]),
+    source: s.enum(SOURCE_TYPES),
+    sourceRecordId: s.optional(s.string()),
+    /** ISO date the relationship began, when the source says. */
+    establishedAt: s.optional(s.string({ maxLength: 10 })),
+    status: s.enum(["active", "ended", "rejected"]),
+    /** The owner's own assessment: 1 (barely) … 5 (close). Absent until they say. */
+    closeness: s.optional(s.integer({ minimum: 1, maximum: 5 })),
+    /** The owner's words: "we shipped the payments rewrite together at Acme". */
+    context: s.optional(s.string({ maxLength: 500 })),
+    confidence: s.number({ minimum: 0, maximum: 1 }),
+    evidenceId: s.string(),
+    createdAt: s.number(),
+    updatedAt: s.number(),
+  },
+  { unique: [["ownerId", "personId", "source"]], indexes: [{ fields: ["ownerId", "type"] }] },
+);
+
+/** That two of the owner's people know each other, by the owner's word or an imported record. `aId` < `bId`. */
+export const ties = app.collection(
+  "ties",
+  { ownerId: s.string(), aId: s.ref(people), bId: s.ref(people), basis: s.enum(["user_provided", "imported"]), context: s.optional(s.string({ maxLength: 300 })), evidenceId: s.string(), createdAt: s.number() },
+  { unique: [["ownerId", "aId", "bId"]], indexes: [{ fields: ["ownerId", "bId"] }] },
+);
+
+/**
+ * Every assertion's provenance. Immutable except for supersession (`verification`, `supersededBy`),
+ * which is itself recorded in the ledger. `contentHash` (the assertion and its source) is unique per
+ * owner, so the same fact from the same source is stored once however often it is imported.
+ */
+export const evidence = app.collection(
+  "evidence",
+  {
+    ownerId: s.string(),
+    subjectType: s.enum(["person", "organization", "employment", "relationship", "tie", "interaction"]),
+    subjectId: s.string(),
+    predicate: s.string({ maxLength: 60 }),
+    objectValue: s.string({ maxLength: 2000 }),
+    kind: s.enum(EVIDENCE_KINDS),
+    sourceType: s.enum(SOURCE_TYPES),
+    /** The import, post, follow or model generation it came from. */
+    sourceReference: s.string({ maxLength: 200 }),
+    sourceUri: s.optional(s.string({ maxLength: 500 })),
+    /** When the fact was observed to hold (ms), when its source was published, when Frame captured it. */
+    observedAt: s.number(),
+    publishedAt: s.optional(s.number()),
+    capturedAt: s.number(),
+    validFrom: s.optional(s.string({ maxLength: 10 })),
+    /** After this (ms) the fact is stale: an opportunity is no longer presented as active. */
+    validUntil: s.optional(s.number()),
+    confidence: s.number({ minimum: 0, maximum: 1 }),
+    verification: s.enum(["unverified", "user_confirmed", "disputed", "superseded"]),
+    supersededBy: s.optional(s.string()),
+    contentHash: s.string(),
+  },
+  { unique: [["ownerId", "contentHash"]], indexes: [{ fields: ["ownerId", "subjectType", "subjectId"] }, { fields: ["ownerId", "predicate", "observedAt"] }, { fields: ["ownerId", "capturedAt"] }] },
+);
+
+/** One import of connection data. The same file twice is the same import (unique contentHash). */
+export const imports = app.collection(
+  "imports",
+  {
+    ownerId: s.string(),
+    source: s.enum(["linkedin_export", "csv_import"]),
+    fileName: s.string({ maxLength: 200 }),
+    contentHash: s.string(),
+    rows: s.integer({ minimum: 0 }),
+    created: s.integer({ minimum: 0 }),
+    matched: s.integer({ minimum: 0 }),
+    skipped: s.array(s.object({ row: s.integer(), reason: s.string({ maxLength: 200 }) }), { maxItems: 200 }),
+    createdAt: s.number(),
+  },
+  { unique: [["ownerId", "contentHash"]], indexes: [{ fields: ["ownerId", "createdAt"] }] },
+);
+
+/** Something that actually happened between the owner and a person. */
+export const interactions = app.collection(
+  "interactions",
+  {
+    ownerId: s.string(),
+    personId: s.ref(people),
+    kind: s.enum(["meeting", "call", "email", "message", "introduction", "other"]),
+    occurredAt: s.number(),
+    note: s.optional(s.string({ maxLength: 1000 })),
+    source: s.enum(["user", "draft"]),
+    evidenceId: s.string(),
+    createdAt: s.number(),
+  },
+  { indexes: [{ fields: ["ownerId", "personId", "occurredAt"] }, { fields: ["ownerId", "occurredAt"] }] },
+);
+
+/** What the owner is looking for next. Relevance is measured against it. One per owner. */
+export const goals = app.collection(
+  "goals",
+  {
+    ownerId: s.string(),
+    text: s.string({ maxLength: 300 }),
+    functions: s.array(s.enum(FUNCTIONS), { maxItems: 6 }),
+    domains: s.array(s.string({ maxLength: 40 }), { maxItems: 10 }),
+    seniority: s.array(s.enum(SENIORITY), { maxItems: 7 }),
+    organizationIds: s.array(s.string(), { maxItems: 20 }),
+    updatedAt: s.number(),
+  },
+  { unique: [["ownerId"]] },
+);
+
+/** A message prepared for the owner to send. A draft is never sent by Frame; "sent" is the owner's confirmation. */
+export const drafts = app.collection(
+  "drafts",
+  {
+    ownerId: s.string(),
+    personId: s.ref(people),
+    purpose: s.enum(["reconnect", "introduction", "followup", "other"]),
+    text: s.string({ maxLength: 4000 }),
+    status: s.enum(["draft", "sent", "discarded"]),
+    /** The evidence the draft is built on. */
+    basis: s.array(s.string(), { maxItems: 30 }),
+    generatedBy: s.enum(["template", "model", "user"]),
+    generation: s.optional(s.object({ provider: s.string(), model: s.string(), taskId: s.optional(s.string()) })),
+    sentAt: s.optional(s.number()),
+    interactionId: s.optional(s.string()),
+    createdAt: s.number(),
+    updatedAt: s.number(),
+  },
+  { indexes: [{ fields: ["ownerId", "personId"] }, { fields: ["ownerId", "status", "updatedAt"] }] },
+);
+
+export const followups = app.collection(
+  "followups",
+  {
+    ownerId: s.string(),
+    personId: s.ref(people),
+    dueAt: s.number(),
+    reason: s.string({ minLength: 1, maxLength: 300 }),
+    status: s.enum(["open", "done", "cancelled"]),
+    draftId: s.optional(s.string()),
+    completedAt: s.optional(s.number()),
+    createdAt: s.number(),
+  },
+  { indexes: [{ fields: ["ownerId", "status", "dueAt"] }, { fields: ["ownerId", "personId"] }] },
+);
+
+/**
+ * The history of a person's record in the owner's network: imports, corrections, merges,
+ * supersessions, drafts confirmed sent. Written in the same transaction as the change.
+ */
+export const ledger = app.auditTrail("networkLedger", { subjects: ["person"] as const, description: "History of each person record in an owner's professional network." });
 
 // ---------------------------------------------------------------------------------------------------
 // Migrations (never rename or edit one that ran).
