@@ -94,3 +94,12 @@ export function interpret(question: string, vocab: Vocabulary): InterpretationT 
     text: vague ? question.trim().slice(0, 200) : null, understood, vague,
   };
 }
+
+/** A goal in words, from its structure: "a product leadership role in AI". */
+export function goalPhrase(g: { functions: readonly string[]; domains: readonly string[]; seniority: readonly string[] }): string {
+  const lead = g.seniority.some((s) => ["director", "vp", "cxo", "founder"].includes(s));
+  const fn = g.functions.filter((f) => f !== "executive").join(" and ");
+  const dom = g.domains.map((d) => (d === "ai" ? "AI" : d)).join(" and ");
+  const role = `${fn ? `${fn} ` : ""}${lead ? "leadership " : ""}role`;
+  return `a ${role}${dom ? ` in ${dom}` : ""}`.replace(/^a role$/, "my next role");
+}

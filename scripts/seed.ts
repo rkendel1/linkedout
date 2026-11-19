@@ -226,9 +226,15 @@ async function main() {
   }
 
   // The visitor lets Concierge thank commenters, and gets a digest.
-  await demo.mutation(api.tasks.grant, { capability: "frame.react" });
-  await demo.mutation(api.tasks.grant, { capability: "frame.digest" });
-  await demo.mutation(api.tasks.create, { kind: "react" });
+  // Per-agent delegation needs an AuthBoundry newer than the published @authboundry/local 0.1.0
+  // (docs/GAP-REGISTER.md): where it is refused, say so and seed the rest.
+  try {
+    await demo.mutation(api.tasks.grant, { capability: "frame.react" });
+    await demo.mutation(api.tasks.grant, { capability: "frame.digest" });
+    await demo.mutation(api.tasks.create, { kind: "react" });
+  } catch (e) {
+    console.log(`Delegation not seeded: ${(e as Error).message}`);
+  }
   const link = await demo.mutation(api.posts.uploadLink);
   const file = await demo.uploadFile(link, await photo("1500530855697-b586d89ba3ee", 1080, 720), { name: "photo.jpg", contentType: "image/jpeg" });
   const mine = await demo.mutation(api.posts.create, { text: "First post on Frame. Where should I go next? #travel", media: [{ fileId: file.id, width: 1080, height: 720 }] });

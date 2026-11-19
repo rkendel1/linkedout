@@ -11,6 +11,7 @@ import { app, drafts, followups, goals, people, profiles } from "./app.js";
 import { DAY, history, ownPerson, ownerOf } from "./_network.js";
 import { currentJobs, hiringSignals, jobText, knows, loadGraph, orgName, pastJobs, personDomains } from "./_graph.js";
 import { insertInteraction } from "./network.js";
+import { goalPhrase } from "./_interpret.js";
 
 const draftOwns = { collection: drafts, id: "draftId", field: "ownerId" } as const;
 const followupOwns = { collection: followups, id: "followupId", field: "ownerId" } as const;
@@ -55,7 +56,7 @@ export const draft = app.mutation({
       lines.push(`Hi ${first},`);
       const since = last ? ` since we last spoke in ${new Date(last.occurredAt).toISOString().slice(0, 7)}` : "";
       if (last) basis.push(last.evidenceId);
-      lines.push(`It's been a while${since}${ctxRel ? `, and I still think about ${ctxRel.context!.replace(/\.$/, "")}` : ""}.`);
+      lines.push(`It's been a while${since}.${ctxRel ? ` I still think back to our time together — ${ctxRel.context!.replace(/\.$/, "")}.` : ""}`);
       if (ctxRel) basis.push(ctxRel.evidenceId);
       if (cur && prev) {
         lines.push(`I saw you moved from ${orgName(g, prev.organizationId)} to ${jobText(g, cur)} — congratulations.`);
@@ -67,7 +68,7 @@ export const draft = app.mutation({
       if (goal) {
         const hiring = cur ? (await hiringSignals(ctx.db, ownerId)).get(cur.organizationId) : undefined;
         const domain = goal.domains.find((d) => personDomains(g, p).has(d));
-        lines.push(`I'm exploring my next step${goal.text ? ` — ${goal.text}` : ""} — and your perspective${domain ? ` on ${domain === "ai" ? "AI" : domain}` : ""} would mean a lot${hiring?.length ? `, especially as ${orgName(g, cur!.organizationId)} is growing the team` : ""}.`);
+        lines.push(`I'm exploring my next step, ${goalPhrase(goal)}, and your perspective${domain ? ` on ${domain === "ai" ? "AI" : domain}` : ""} would mean a lot${hiring?.length ? `, especially as ${orgName(g, cur!.organizationId)} is growing the team` : ""}.`);
         if (hiring?.length) basis.push(hiring[0]!.id);
       }
       lines.push("Would you be open to a 20-minute call in the next couple of weeks?");
@@ -81,7 +82,7 @@ export const draft = app.mutation({
       if (tj) basis.push(tj.evidenceId);
       lines.push(`Hi ${first},`);
       lines.push(`I hope you're well. I'd love to meet ${t.displayName}${tj ? ` (${jobText(g, tj)})` : ""}, and I believe you know each other.`);
-      if (goal) lines.push(`I'm exploring my next step — ${goal.text} — and ${t.displayName.split(" ")[0]}'s experience is directly relevant.`);
+      if (goal) lines.push(`I'm exploring my next step, ${goalPhrase(goal)}, and ${t.displayName.split(" ")[0]}'s experience is directly relevant.`);
       lines.push("Would you be comfortable making an introduction? Happy to send a short blurb you can forward. And no pressure at all if it isn't a fit.");
     } else {
       lines.push(`Hi ${first},`);

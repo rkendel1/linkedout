@@ -183,7 +183,7 @@ test("MVP: five people in my network for my next AI product leadership role, why
     const ask = await me.action(api.assistant.ask, { question: "Find five people in my network who could help me find my next AI product leadership opportunity" });
     assert.equal(ask.intent, "recommend");
     assert.equal(ask.via, "rules");
-    assert.match(ask.answer, /^For .*\n1\. Maya Okafor/);
+    assert.match(ask.answer, /^For “a product leadership role in AI”, 5 people in your network stand out \(of \d+ you know\):\n1\. Maya Okafor/);
     assert.ok(ask.evidenceIds.length >= 5);
     assert.ok(!/Tom Baker/.test(ask.answer));
 
@@ -314,7 +314,8 @@ test("drafts: built only from evidence, never sent by Frame; an agent can only p
     assert.equal(d.status, "draft");
     assert.equal(d.generatedBy, "template");
     assert.match(d.text, /^Hi Maya,/);
-    assert.match(d.text, /we shipped the search relaunch together at Cartograph/);
+    assert.match(d.text, /I still think back to our time together — we shipped the search relaunch together at Cartograph\./);
+    assert.match(d.text, /my next step, a product leadership role in AI, and your perspective on AI/);
     assert.match(d.text, /Lumen AI is growing the team/);
     for (const e of await me.query(api.network.explain, { evidenceIds: d.basis })) assert.ok(e.found);
     assert.equal((await me.query(api.network.person, { personId: id("Maya Okafor") })).interactions.length, 0, "drafting records no interaction");
@@ -466,3 +467,16 @@ for (const live of ["openai/gpt-4.1-mini", "google/gemini-2.5-flash"]) {
     });
   });
 }
+
+test("search: a skill filter finds the same skill, or a recorded skill in the same domain, and says which", async () => {
+  await withApp(async (t) => {
+    const { me } = await demoNetwork(t);
+    const exact = await me.query(api.network.search, { skills: ["security"] });
+    assert.deepEqual(exact.people.map((p) => p.person.displayName), ["Grace Mbeki"]);
+    assert.equal(exact.people[0]!.reasons[0]!.text, "Skill: security");
+    const related = await me.query(api.network.search, { skills: ["cybersecurity"] });
+    assert.deepEqual(related.people.map((p) => p.person.displayName), ["Grace Mbeki"]);
+    assert.equal(related.people[0]!.reasons[0]!.text, "Skill: security (related to “cybersecurity”)");
+    assert.equal((await me.query(api.network.search, { skills: ["pottery"] })).total, 0);
+  });
+});

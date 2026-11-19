@@ -14,7 +14,8 @@
     "deploy": "feltkit deploy",
     "typecheck": "tsc --noEmit",
     "seed": "node scripts/seed.ts",
-    "test:e2e": "feltkit build && node --test --test-concurrency=1 e2e/*.test.mjs"
+    "test:e2e": "feltkit build && node --test --test-concurrency=1 e2e/*.test.mjs",
+    "seed:network": "node scripts/seed-network.ts"
   },
   "dependencies": {
     "@authboundry/local": "^0.1.0",
@@ -33,6 +34,9 @@
   },
   "feltkitDemo": {
     "include": [
+      "scripts/demo-network/Connections.csv",
+      "scripts/demo-network/context.csv",
+      "scripts/seed-network.ts",
       "scripts/seed.ts"
     ],
     "flyApp": "linkedout-demo"

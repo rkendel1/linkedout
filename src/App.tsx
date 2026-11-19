@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { SignIn, useMutation, useQueryState, useSession } from "@feltdb/feltkit/react";
-import { Bell, Compass, House, SquarePlus, Users } from "lucide-react";
+import { Bell, Briefcase, Compass, House, SquarePlus, Users } from "lucide-react";
 import type { ResultOf } from "@feltdb/feltkit/client";
 import { api } from "../feltkit/_generated/api";
 import { AgentGlyph, Avatar, Link, usePath } from "./lib";
+import { Network, PersonPage } from "./network";
 import { Agents, Communities, CommunityPage, Create, Discover, Home, Notifications, PostView, Profile, Settings, TopicPage } from "./pages";
 
 export function App() {
@@ -107,6 +108,7 @@ function Shell({ me }: { me: Me }) {
   const badge = (unread.data?.count ?? 0) > 0 && !path.startsWith("/notifications");
   const nav: Array<{ to: string; label: string; icon: ReactNode; desktop?: boolean }> = [
     { to: "/", label: "Home", icon: <House /> },
+    { to: "/network", label: "Network", icon: <Briefcase /> },
     { to: "/discover", label: "Discover", icon: <Compass /> },
     { to: "/create", label: "Create", icon: <SquarePlus /> },
     { to: "/notifications", label: "Activity", icon: <span className="badge-wrap"><Bell />{badge && <span className="dot" aria-label={`${unread.data?.count}${unread.data?.complete === false ? "+" : ""} unread`} />}</span> },
@@ -146,7 +148,7 @@ function Shell({ me }: { me: Me }) {
 function Route({ path, me }: { path: string; me: Me }) {
   const [, section, arg] = path.split(/[?#]/)[0]!.split("/");
   useEffect(() => {
-    const titles: Record<string, string> = { discover: "Discover", create: "New post", notifications: "Activity", settings: "Settings", p: "Post", agents: "Agents", t: "Topic", communities: "Communities", c: "Community" };
+    const titles: Record<string, string> = { network: "Network", n: "Person", discover: "Discover", create: "New post", notifications: "Activity", settings: "Settings", p: "Post", agents: "Agents", t: "Topic", communities: "Communities", c: "Community" };
     document.title = section === "u" && arg ? `@${decodeURIComponent(arg)} · Frame` : titles[section ?? ""] ? `${titles[section!]} · Frame` : "Frame";
   }, [section, arg]);
   switch (section) {
@@ -157,6 +159,10 @@ function Route({ path, me }: { path: string; me: Me }) {
       return <Discover />;
     case "t":
       return arg ? <TopicPage key={arg} topic={decodeURIComponent(arg)} /> : <Discover />;
+    case "network":
+      return <Network key={arg ?? ""} tab={arg ?? ""} />;
+    case "n":
+      return arg ? <PersonPage key={arg} id={decodeURIComponent(arg)} /> : <Network tab="people" />;
     case "agents":
       return <Agents me={me} />;
     case "communities":

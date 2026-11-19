@@ -274,6 +274,7 @@ type Group = ResultOf<typeof api.inbox.list>["groups"][number];
 function target(g: Group) {
   if (g.link.postId) return `/p/${g.link.postId}${g.link.commentId ? `#c-${g.link.commentId}` : ""}`;
   if (g.link.taskId) return "/agents";
+  if (g.link.personId) return `/n/${g.link.personId}`;
   if (g.link.profileUsername) return `/u/${g.link.profileUsername}`;
   return null;
 }

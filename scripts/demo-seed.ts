@@ -45,3 +45,7 @@ for (const { profile } of await ada.query(api.profiles.suggested, { limit: 30 })
   await ada.mutation(api.follows.create, { profileId: profile.id });
 }
 console.log("[demo] Ada follows everyone.");
+
+// LinkedOut: Ada's professional network (scripts/seed-network.ts; a no-op when present).
+const network = spawnSync(process.execPath, ["--import", "tsx", "scripts/seed-network.ts", url, "--dev", "ada"], { stdio: "inherit" });
+if (network.status !== 0) throw new Error(`scripts/seed-network.ts failed (exit ${network.status})`);

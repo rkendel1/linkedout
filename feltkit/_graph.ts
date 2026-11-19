@@ -224,9 +224,12 @@ export function matches(g: Graph, p: PersonDoc, f: Filter): ReasonT[] | null {
   }
   if (f.skills?.length) {
     const have = g.skills.get(p.id) ?? [];
-    const hit = have.find((k) => f.skills!.includes(k.skill));
+    const exact = have.find((k) => f.skills!.includes(k.skill));
+    // Otherwise a recorded skill in the same recognized domain ("cybersecurity" ~ "security"), said as such.
+    const related = exact ? null : f.skills.map((q) => ({ q, hit: have.find((k) => domainsIn(k.skill).some((d) => domainsIn(q).includes(d))) })).find((x) => x.hit);
+    const hit = exact ?? related?.hit;
     if (!hit) return null;
-    reasons.push({ factor: "skill", text: `Skill: ${hit.skill}`, weight: 0, evidenceIds: [hit.evidenceId] });
+    reasons.push({ factor: "skill", text: exact ? `Skill: ${hit.skill}` : `Skill: ${hit.skill} (related to “${related!.q}”)`, weight: 0, evidenceIds: [hit.evidenceId] });
   }
   if (f.text?.trim()) {
     const q = f.text.trim().toLowerCase();

@@ -15,7 +15,7 @@
 import { s, type ActionCtx } from "@feltdb/feltkit";
 import { app } from "./app.js";
 import { api } from "./_generated/api.js";
-import type { InterpretationT } from "./_interpret.js";
+import { goalPhrase, type InterpretationT } from "./_interpret.js";
 
 /** The read capabilities the model may choose among. Each maps to an intent the answer is composed for. */
 const READS = {
@@ -106,7 +106,8 @@ async function viaModel(ctx: ActionCtx, question: string) {
 function byRules(ctx: ActionCtx, i: InterpretationT): Promise<unknown> {
   switch (i.intent) {
     case "recommend":
-      return ctx.runQuery(api.intel.recommend, i.functions.length || i.domains.length || i.organizationIds.length ? { goal: [i.seniority.length ? "leadership" : "", ...i.functions, ...i.domains, ...i.organizations].filter(Boolean).join(" ") } : {});
+      // The question's own role and domain when it names them; otherwise the owner's saved goal.
+      return ctx.runQuery(api.intel.recommend, i.functions.length || i.domains.length || i.organizationIds.length ? { goal: `${goalPhrase(i)}${i.organizations.length ? ` at ${i.organizations.join(" or ")}` : ""}` } : {});
     case "paths":
       return i.organizations[0] ? ctx.runQuery(api.intel.paths, { organization: i.organizations[0] }) : i.personIds[0] ? ctx.runQuery(api.intel.paths, { personId: i.personIds[0] }) : Promise.resolve({ target: "", paths: [], limitations: ["Name an organization or a person in your network to find a path to."] });
     case "reconnect":
@@ -128,7 +129,7 @@ function byRules(ctx: ActionCtx, i: InterpretationT): Promise<unknown> {
 // ---------------------------------------------------------------------------------------- compose
 
 type Reasonish = { text: string; evidenceIds: string[] };
-const list = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+const list = (n: number, word: string) => `${n} ${n === 1 ? word : word === "person" ? "people" : `${word}s`}`;
 
 /** Plain-language answers from structured results. Every claim here is a field of the result. */
 function compose(intent: string, r: any, i: InterpretationT): { answer: string; evidenceIds: string[]; limitations: string[] } {
