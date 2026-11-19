@@ -25,8 +25,8 @@ Every image `npm run seed` uploads, with its source. All are fetched at seed tim
 | sol.reyes | post | Turquoise, no filter. I checked twice. | https://images.unsplash.com/photo-1501785888041-af3ef285b470 |
 | sol.reyes | post | The road goes on for another 200 km like this. | https://images.unsplash.com/photo-1500530855697-b586d89ba3ee |
 | sol.reyes | post | Window seat, always. | https://images.unsplash.com/photo-1500835556837-99ac94a94552 |
-| sol.reyes | post | Found my people on the hill at sunset. | https://images.unsplash.com/photo-1529156069898-49953e39b3ac |
-| sol.reyes | post | Last evening on the coast. | https://images.unsplash.com/photo-1507525428034-b723cf961d3e |
+| sol.reyes | post (3 images) | Last evenings on the coast. Swipe → #travel #landscape | https://images.unsplash.com/photo-1529156069898-49953e39b3ac, https://images.unsplash.com/photo-1507525428034-b723cf961d3e, https://images.unsplash.com/photo-1500530855697-b586d89ba3ee |
+| demo | post | First post on Frame. Where should I go next? #travel | https://images.unsplash.com/photo-1500530855697-b586d89ba3ee |
 | nadia.haddad | avatar | — | https://images.unsplash.com/photo-1544005313-94ddf0286df2 |
 | nadia.haddad | post | Living room, finally done. Took a year of flea markets. | https://images.unsplash.com/photo-1502672260266-1c1ef2d93688 |
 | nadia.haddad | post | The succulent survived the winter. A first. | https://images.unsplash.com/photo-1485955900006-10f4d324d411 |

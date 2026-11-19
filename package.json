@@ -1,5 +1,5 @@
 {
-  "name": "frame",
+  "name": "linkedout",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -7,17 +7,19 @@
     "dev": "feltkit dev",
     "build": "feltkit build",
     "start": "feltkit start",
+    "start:demo": "node scripts/demo-server.mjs",
+    "deploy:demo": "feltkit deploy --target fly && node scripts/demo-artifact.mjs",
     "test": "feltkit test",
     "inspect": "feltkit inspect",
     "deploy": "feltkit deploy",
     "typecheck": "tsc --noEmit",
     "seed": "node scripts/seed.ts",
-    "test:e2e": "feltkit build && node --test --test-concurrency=1 e2e/*.test.mjs"
+    "test:e2e": "feltkit build && node --test --test-concurrency=1 e2e/*.test.mjs",
+    "seed:network": "node scripts/seed-network.ts"
   },
   "dependencies": {
-    "@feltdb/feltkit": "^0.3.29",
-    "@feltdb/webllm": ">=0.21.0 <1.0.0",
-    "@mlc-ai/web-llm": "^0.2.84",
+    "@authboundry/local": "^0.1.0",
+    "@feltdb/feltkit": "^0.3.34",
     "lucide-react": "1.72.0",
     "react": "19.2.0",
     "react-dom": "19.2.0"
@@ -29,5 +31,14 @@
     "@vitejs/plugin-react": "5.1.0",
     "typescript": "5.9.3",
     "vite": "7.3.7"
+  },
+  "feltkitDemo": {
+    "include": [
+      "scripts/demo-network/Connections.csv",
+      "scripts/demo-network/context.csv",
+      "scripts/seed-network.ts",
+      "scripts/seed.ts"
+    ],
+    "flyApp": "linkedout-demo"
   }
 }

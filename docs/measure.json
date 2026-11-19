@@ -2,8 +2,8 @@
   "schema": "feltkit.measure/1",
   "app": {
     "name": "frame",
-    "feltkit": "^0.3.29",
-    "installed": "0.3.29"
+    "feltkit": "^0.3.30",
+    "installed": "0.3.30"
   },
   "method": {
     "files": "git ls-files (tracked, and untracked files that are not ignored); node_modules, dist, .feltkit and .git are never counted",
@@ -19,8 +19,8 @@
       "template": "tasks",
       "files": 20,
       "unmodified": 4,
-      "modified": 12,
-      "missing": 4
+      "modified": 13,
+      "missing": 3
     },
     "generated": {
       "file": "feltkit/_generated/api.ts",
@@ -30,28 +30,28 @@
   },
   "totals": {
     "domain": {
-      "files": 6,
-      "lines": 504
+      "files": 13,
+      "lines": 1841
     },
     "experience": {
       "files": 6,
-      "lines": 1034
+      "lines": 1937
     },
     "infrastructure": {
       "files": 1,
-      "lines": 163
+      "lines": 205
     },
     "generated": {
       "files": 5,
-      "lines": 76
+      "lines": 82
     },
     "configuration": {
       "files": 4,
-      "lines": 79
+      "lines": 80
     },
     "tests": {
       "files": 3,
-      "lines": 460
+      "lines": 855
     },
     "third-party": {
       "files": 0,
@@ -62,8 +62,8 @@
       "lines": 0
     },
     "excluded": {
-      "files": 7,
-      "lines": 4432
+      "files": 19,
+      "lines": 4138
     },
     "unclassified": {
       "files": 0,
@@ -71,47 +71,87 @@
     }
   },
   "authored": {
-    "files": 17,
-    "lines": 1780
+    "files": 24,
+    "lines": 4063
   },
   "definitions": {
     "app": {
-      "collection": 5,
-      "mutation": 14,
-      "query": 13
+      "agent": 2,
+      "auditTrail": 1,
+      "collection": 12,
+      "migration": 2,
+      "mutation": 32,
+      "query": 27
     },
     "collections": [
       "profiles",
+      "communities",
+      "memberships",
       "posts",
+      "media",
+      "postTopics",
       "follows",
-      "likes",
-      "comments"
+      "comments",
+      "reactions",
+      "notificationSettings",
+      "sponsorships",
+      "tasks"
     ]
   },
   "consumption": [
     {
       "api": "@feltdb/feltkit s",
-      "callSites": 134,
-      "files": 6
+      "callSites": 582,
+      "files": 12
     },
     {
       "api": "ctx.db",
-      "callSites": 56,
-      "files": 5
+      "callSites": 217,
+      "files": 12
+    },
+    {
+      "api": "@feltdb/feltkit fail",
+      "callSites": 44,
+      "files": 10
     },
     {
       "api": "@feltdb/feltkit/react useMutation",
-      "callSites": 13,
+      "callSites": 32,
       "files": 3
     },
     {
       "api": "@feltdb/feltkit/react useQueryState",
+      "callSites": 31,
+      "files": 3
+    },
+    {
+      "api": "@feltdb/feltkit DatabaseReader",
       "callSites": 13,
+      "files": 1
+    },
+    {
+      "api": "@feltdb/feltkit/client ResultOf",
+      "callSites": 9,
+      "files": 3
+    },
+    {
+      "api": "@feltdb/feltkit/testing TestApp",
+      "callSites": 9,
+      "files": 1
+    },
+    {
+      "api": "ctx.authority",
+      "callSites": 9,
       "files": 2
     },
     {
-      "api": "@feltdb/feltkit fail",
-      "callSites": 11,
+      "api": "@feltdb/feltkit MutationCtx",
+      "callSites": 7,
+      "files": 2
+    },
+    {
+      "api": "ctx.auth",
+      "callSites": 7,
       "files": 4
     },
     {
@@ -120,13 +160,13 @@
       "files": 3
     },
     {
-      "api": "@feltdb/feltkit/react useFeltKit",
+      "api": "ctx.afterCommit.agent",
       "callSites": 5,
       "files": 2
     },
     {
-      "api": "@feltdb/feltkit DatabaseReader",
-      "callSites": 4,
+      "api": "ctx.services.notifications",
+      "callSites": 5,
       "files": 1
     },
     {
@@ -135,14 +175,14 @@
       "files": 1
     },
     {
-      "api": "@feltdb/feltkit/testing TestApp",
+      "api": "@feltdb/feltkit QueryCtx",
       "callSites": 4,
-      "files": 1
+      "files": 2
     },
     {
-      "api": "ctx.services.notifications",
+      "api": "ctx.afterCommit.jobs",
       "callSites": 4,
-      "files": 1
+      "files": 3
     },
     {
       "api": "@feltdb/feltkit Doc",
@@ -150,9 +190,9 @@
       "files": 1
     },
     {
-      "api": "@feltdb/feltkit/client ResultOf",
+      "api": "@feltdb/feltkit/react useFeltKit",
       "callSites": 3,
-      "files": 1
+      "files": 3
     },
     {
       "api": "@feltdb/feltkit/react useSession",
@@ -160,39 +200,19 @@
       "files": 2
     },
     {
-      "api": "ctx.afterCommit.notifications",
+      "api": "@feltdb/feltkit/testing createTestApp",
       "callSites": 3,
-      "files": 1
+      "files": 2
     },
     {
-      "api": "ctx.auth",
-      "callSites": 3,
-      "files": 3
-    },
-    {
-      "api": "@feltdb/feltkit QueryCtx",
+      "api": "@feltdb/feltkit/client createApi",
       "callSites": 2,
-      "files": 1
+      "files": 2
     },
     {
       "api": "@feltdb/feltkit/client createClient",
       "callSites": 2,
       "files": 2
-    },
-    {
-      "api": "ctx.afterCommit.jobs",
-      "callSites": 2,
-      "files": 2
-    },
-    {
-      "api": "@feltdb/feltkit AuthorizeRequest",
-      "callSites": 1,
-      "files": 1
-    },
-    {
-      "api": "@feltdb/feltkit/client createApi",
-      "callSites": 1,
-      "files": 1
     },
     {
       "api": "@feltdb/feltkit/client TokenStore",
@@ -205,12 +225,12 @@
       "files": 1
     },
     {
-      "api": "@feltdb/feltkit/testing createArtifactTestApp",
+      "api": "ctx.afterCommit.notifications",
       "callSites": 1,
       "files": 1
     },
     {
-      "api": "@feltdb/feltkit/testing createTestApp",
+      "api": "ctx.trigger",
       "callSites": 1,
       "files": 1
     }
@@ -270,10 +290,82 @@
       "lines": 0
     },
     {
+      "path": "docs/measure.json",
+      "class": "excluded",
+      "basis": "documentation",
+      "lines": 0
+    },
+    {
+      "path": "docs/screenshots/agent-activity.jpg",
+      "class": "excluded",
+      "basis": "documentation",
+      "lines": 0
+    },
+    {
+      "path": "docs/screenshots/agent-profile.jpg",
+      "class": "excluded",
+      "basis": "documentation",
+      "lines": 0
+    },
+    {
+      "path": "docs/screenshots/agents-delegation.jpg",
+      "class": "excluded",
+      "basis": "documentation",
+      "lines": 0
+    },
+    {
+      "path": "docs/screenshots/communities.jpg",
+      "class": "excluded",
+      "basis": "documentation",
+      "lines": 0
+    },
+    {
+      "path": "docs/screenshots/community.jpg",
+      "class": "excluded",
+      "basis": "documentation",
+      "lines": 0
+    },
+    {
+      "path": "docs/screenshots/conversation-with-agent.jpg",
+      "class": "excluded",
+      "basis": "documentation",
+      "lines": 0
+    },
+    {
+      "path": "docs/screenshots/discover.jpg",
+      "class": "excluded",
+      "basis": "documentation",
+      "lines": 0
+    },
+    {
+      "path": "docs/screenshots/home-desktop.jpg",
+      "class": "excluded",
+      "basis": "documentation",
+      "lines": 0
+    },
+    {
+      "path": "docs/screenshots/home-phone.jpg",
+      "class": "excluded",
+      "basis": "documentation",
+      "lines": 0
+    },
+    {
+      "path": "docs/screenshots/notifications-phone.jpg",
+      "class": "excluded",
+      "basis": "documentation",
+      "lines": 0
+    },
+    {
+      "path": "docs/screenshots/notifications.jpg",
+      "class": "excluded",
+      "basis": "documentation",
+      "lines": 0
+    },
+    {
       "path": "e2e/frame.e2e.test.mjs",
       "class": "tests",
       "basis": "path: tests",
-      "lines": 223
+      "lines": 274
     },
     {
       "path": "feltkit.scaffold.json",
@@ -285,46 +377,89 @@
       "path": "feltkit/_frame.ts",
       "class": "domain",
       "basis": "path: feltkit/ (server functions)",
-      "lines": 80
+      "lines": 203
     },
     {
       "path": "feltkit/_generated/api.ts",
       "class": "generated",
       "basis": "codegen (matches regeneration)",
-      "lines": 7,
+      "lines": 13,
       "scaffold": "modified"
+    },
+    {
+      "path": "feltkit/_social.ts",
+      "class": "domain",
+      "basis": "path: feltkit/ (server functions)",
+      "lines": 90
+    },
+    {
+      "path": "feltkit/agents.ts",
+      "class": "domain",
+      "basis": "path: feltkit/ (server functions)",
+      "lines": 170
     },
     {
       "path": "feltkit/app.ts",
       "class": "domain",
       "basis": "path: feltkit/ (server functions)",
-      "lines": 69,
+      "lines": 241,
       "scaffold": "modified"
+    },
+    {
+      "path": "feltkit/comments.ts",
+      "class": "domain",
+      "basis": "path: feltkit/ (server functions)",
+      "lines": 94
+    },
+    {
+      "path": "feltkit/communities.ts",
+      "class": "domain",
+      "basis": "path: feltkit/ (server functions)",
+      "lines": 167
+    },
+    {
+      "path": "feltkit/discover.ts",
+      "class": "domain",
+      "basis": "path: feltkit/ (server functions)",
+      "lines": 93
+    },
+    {
+      "path": "feltkit/follows.ts",
+      "class": "domain",
+      "basis": "path: feltkit/ (server functions)",
+      "lines": 33
     },
     {
       "path": "feltkit/inbox.ts",
       "class": "domain",
       "basis": "path: feltkit/ (server functions)",
-      "lines": 41,
+      "lines": 146,
       "scaffold": "modified"
     },
     {
       "path": "feltkit/posts.ts",
       "class": "domain",
       "basis": "path: feltkit/ (server functions)",
-      "lines": 116
+      "lines": 171
     },
     {
       "path": "feltkit/profiles.ts",
       "class": "domain",
       "basis": "path: feltkit/ (server functions)",
-      "lines": 109
+      "lines": 149
     },
     {
-      "path": "feltkit/social.ts",
+      "path": "feltkit/reactions.ts",
       "class": "domain",
       "basis": "path: feltkit/ (server functions)",
-      "lines": 89
+      "lines": 59
+    },
+    {
+      "path": "feltkit/tasks.ts",
+      "class": "domain",
+      "basis": "path: feltkit/ (server functions)",
+      "lines": 225,
+      "scaffold": "modified"
     },
     {
       "path": "index.html",
@@ -337,13 +472,13 @@
       "path": "package-lock.json",
       "class": "excluded",
       "basis": "lockfile",
-      "lines": 4432
+      "lines": 4138
     },
     {
       "path": "package.json",
       "class": "configuration",
       "basis": "configuration file",
-      "lines": 33,
+      "lines": 34,
       "scaffold": "modified"
     },
     {
@@ -371,26 +506,26 @@
       "path": "scripts/seed.ts",
       "class": "infrastructure",
       "basis": "path: scripts/ (app tooling)",
-      "lines": 163
+      "lines": 205
     },
     {
       "path": "src/App.tsx",
       "class": "experience",
       "basis": "path: src/ (UI)",
-      "lines": 143,
+      "lines": 160,
       "scaffold": "modified"
     },
     {
       "path": "src/components.tsx",
       "class": "experience",
       "basis": "path: src/ (UI)",
-      "lines": 148
+      "lines": 488
     },
     {
       "path": "src/lib.tsx",
       "class": "experience",
       "basis": "path: src/ (UI)",
-      "lines": 102
+      "lines": 142
     },
     {
       "path": "src/main.tsx",
@@ -403,13 +538,13 @@
       "path": "src/pages.tsx",
       "class": "experience",
       "basis": "path: src/ (UI)",
-      "lines": 395
+      "lines": 750
     },
     {
       "path": "src/styles.css",
       "class": "experience",
       "basis": "path: src/ (UI)",
-      "lines": 224,
+      "lines": 375,
       "scaffold": "modified"
     },
     {
@@ -420,16 +555,16 @@
       "scaffold": "unmodified"
     },
     {
-      "path": "tests/artifact.test.ts",
-      "class": "tests",
-      "basis": "path: tests",
-      "lines": 24
-    },
-    {
       "path": "tests/frame.test.ts",
       "class": "tests",
       "basis": "path: tests",
-      "lines": 213
+      "lines": 519
+    },
+    {
+      "path": "tests/migration.test.ts",
+      "class": "tests",
+      "basis": "path: tests",
+      "lines": 62
     },
     {
       "path": "tsconfig.json",

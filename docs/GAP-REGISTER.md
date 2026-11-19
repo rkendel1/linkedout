@@ -1,91 +1,99 @@
 # Frame — platform gap register
 
-Gaps found while building Frame on FeltKit 0.3.29 (`@feltdb/feltkit`, `create-feltkit` 0.3.29,
-`@appport/services` as pinned by FeltKit, FeltDB 0.21.0). Each entry says what Frame needed, what the
-platform provides, what Frame did instead, and the evidence. No FeltKit package was modified.
+Platform as installed: `@feltdb/feltkit` 0.3.30, `@appport/services` 0.18.0, `@feltdb/core` 0.21.0,
+`@authboundry/local` 0.1.0 (with `@authboundry/core` 1.18.0), AppPort 1.x as pinned by FeltKit. Each
+entry says what Frame needs, what the platform does (read from the installed code, not its
+description), what Frame does instead, and the evidence. No platform package was modified: this
+session can reach only the Frame repository, and none of these packages can be published from it.
 
-Severity: **High** — blocks a core feature on a supported path. **Medium** — Frame works, with a
-workaround or a known cost. **Low** — friction or an inconsistency.
+Severity: **High**, blocks a core feature on a supported path. **Medium**, Frame works with a
+workaround or a known cost. **Low**, friction.
 
-| ID | Gap | Capability | Severity | Workaround |
+## Status after the platform work on branch `claude/kind-pascal-56i8k8` (unreleased)
+
+On this branch Frame uses the implementations described in [PLATFORM-NEXT.md](PLATFORM-NEXT.md):
+FRAME-GAP-01, 05, 06, 08, 11 and 12 are **closed upstream (unreleased)** and their workarounds are removed
+here. 02, 03, 07, 13 and 14 remain open. The tables below record the state on the published packages.
+
+## Status of Frame 1's gaps after the upgrade
+
+| ID | Gap | Owner | Status in 0.3.30 / 0.18.0 | Frame now |
 |---|---|---|---|---|
-| FRAME-GAP-01 | Photo links are uncacheable and new on every issue | Files (file links) | Medium | Client-side link cache in `src/lib.tsx` |
-| FRAME-GAP-02 | AppBoundry artifacts cannot upload or serve files | AppBoundry / Files | High | Deploy with the Node/container target |
-| FRAME-GAP-03 | AppBoundry artifacts cannot sign people up or in (FK-GAP-013) | AppBoundry / accounts | High | Deploy with the Node/container target |
-| FRAME-GAP-04 | Per-record rules are keyed by function-name strings | `feltkit({ authorize })` | Medium | Explicit map + tests for each entry |
-| FRAME-GAP-05 | No `in` / set queries; a feed is one query per followed author | FeltDB `ctx.db.query` | Medium | Merge per-author pages |
-| FRAME-GAP-06 | No image derivatives (thumbnails, sizes) | Files | Medium | Browser downscales before upload; grids load full images |
-| FRAME-GAP-07 | Text search is a linear scan | `ctx.db.search` | Low (at demo scale) | None needed yet |
-| FRAME-GAP-08 | Notifications list has no limit or cursor | Notifications | Low | Read all, slice to 100 |
-| FRAME-GAP-09 | No after-commit file removal | Files / outbox | Low | `ctx.afterCommit.jobs` + a job mutation |
-| FRAME-GAP-10 | MCP `tools/list` shows FeltKit agent tools the caller cannot call | MCP / AppPort | Low | None (calls are refused) |
+| FRAME-GAP-01 | Photo links are uncacheable and new on every issue | Files | **Open.** `files.link` options unchanged; downloads still `private, no-store` | Client link cache kept (`src/lib.tsx`, `usePhotoUrl`). e2e asserts the header |
+| FRAME-GAP-02 | AppBoundry artifacts cannot upload or serve files | AppBoundry | **Open** | Deploy with the Node/container target |
+| FRAME-GAP-03 | AppBoundry artifacts cannot sign people up (FK-GAP-013) | AppBoundry | **Open** | Same |
+| FRAME-GAP-04 | Per-record rules keyed by function-name strings | FeltKit | **Closed.** `owner` on the function (`OwnerDeclaration`, checked when declared, enforced on every interface) | **Workaround removed**: the `authorize` hook and its name→collection map are gone; 7 functions declare `owner`. Tests prove each, and a negative control (removing one declaration) fails 2 tests |
+| FRAME-GAP-05 | No set membership in queries; a feed is a query per followed author | FeltDB | **Open.** `@feltdb/core` is still 0.21.0 | Per-author merge kept (`posts:feed`) |
+| FRAME-GAP-06 | No image derivatives | Files | **Open** | Browser downscales to 1440 px before upload |
+| FRAME-GAP-07 | Text search is a bounded scan | FeltDB | **Open** | None needed at this scale |
+| FRAME-GAP-08 | Notifications list has no limit or cursor | AppPort Services | **Open.** `NotificationsReader.list({ unread, type })` is unchanged in 0.18.0; there is no `markAllRead` | `inbox:list` reads the caller's notifications and pages them in memory (cursor `createdAt|id`, tested to never skip or repeat); `markAllRead` marks one at a time |
+| FRAME-GAP-09 | No after-commit file removal | Files / FeltKit | **Partly closed.** `files.remove` now records the byte release durably before deleting metadata, and keeps bytes another live file references (`FileService.references`, 0.18.0). It still commits on its own, outside the calling mutation's transaction | `media.release` job kept: it is what makes removal follow the delete's commit. Tested: both photos of a deleted 2-photo post are removed, by the owner |
+| FRAME-GAP-10 | MCP `tools/list` shows tools the caller cannot call | FeltKit | **Closed.** `visibleTools` filters by the same authorizer as calls | Nothing to remove (Frame had no workaround). e2e: an agent sees no `feltkit_agent_*` tools and no person-only delegation tools; calling one directly is still refused |
 
----
+About the previously identified workstreams: commit `8420e70` does not exist in this repository
+(`git show 8420e70` fails; this repository's history is five Frame commits), so it was not repaired
+here. What the published packages show of each workstream: **function-bound ownership** shipped
+(FeltKit 0.3.30 `owner`, which names FRAME-GAP-04 in its own docs); **file deletion** shipped as
+recorded byte release (FeltKit 0.3.30 + Services 0.18.0), without a transactional `afterCommit`
+form; **notification pagination** is in no published version.
 
-### FRAME-GAP-01 — Photo links are uncacheable and new on every issue
-- **Capability:** AppPort Services Files via FeltKit file links (`ctx.services.files.link`, `GET /api/files/<token>`).
-- **Why Frame needs it:** a feed shows dozens of photos and is a live query that re-runs whenever a like or comment changes. Photos must load once and stay loaded.
-- **Platform today:** each `files.link()` call mints a new token URL (≤ 1 h). Downloads are sent with `Cache-Control: private, no-store` (`packages/sdk/src/server/index.ts`, file-link handler). A query that returned links would hand the browser new URLs on every re-run, each re-downloaded in full.
-- **Workaround:** Frame's queries return file ids, not links. `posts:media` issues a 1-hour link per photo, and `usePhotoUrl` in `src/lib.tsx` asks once per photo per page load and reuses the URL until near expiry (23 lines of app code that belong in the platform).
-- **Evidence:** `e2e/frame.e2e.test.mjs` asserts the `no-store` header and that two issues for the same file yield different URLs.
-- **Recommended resolution:** content-addressed, cacheable download URLs for files whose read authority is stable (e.g. `files.link(id, { cache: "immutable" })` keyed by checksum, or a `public-to-members` read policy on the file), plus a React `useFileUrl(fileId, authorizingQuery)` hook that caches by file id.
+## New gaps found building Frame 2
 
-### FRAME-GAP-02 — AppBoundry artifacts cannot upload or serve files
-- **Capability:** AppBoundry artifact target; Files.
-- **Why Frame needs it:** posting a photo is the product.
-- **Platform today:** `files.link` and `files.uploadLink` throw `UNAVAILABLE` in the guest (`packages/sdk/src/appboundry/guest.ts`: "File links … need FeltKit's Node server"). `files.upload` with bytes as a function argument exists, but sending multi-MB photos as JSON arguments is not a viable browser path, and downloads have no route at all.
-- **Workaround:** none inside AppBoundry. Frame deploys with `feltkit deploy --target container` (verified below). Everything else in Frame runs in the artifact.
-- **Evidence:** `tests/artifact.test.ts` runs the compiled `frame.app`: profiles, unique usernames, follows, search and the ownership rule pass; `posts:uploadLink` is refused with `UNAVAILABLE`.
-- **Recommended resolution:** an AppBoundry host interface for file transfer (`files-links@1`) that serves the same `PUT`/`GET /api/files/<token>` contract.
+| ID | Gap | Owner | Severity | Workaround |
+|---|---|---|---|---|
+| FRAME-GAP-11 | `ctx.authority.decide({ onBehalfOf })` does not apply `authority.principal`, though grants do | FeltKit | Low | One function (`authorityPrincipal`) used for both |
+| FRAME-GAP-12 | Delegation is person → application executor; there is no person → specific agent grant | AuthBoundry / FeltKit | Medium | One capability name per resident agent (`concierge.*`); external agents cannot hold delegated authority |
+| FRAME-GAP-13 | Application agents and the local authority cannot run in AppBoundry | AppBoundry | High (for that target) | Frame deploys with the Node/container target |
+| FRAME-GAP-14 | No array-membership query (`interests` contains X) | FeltDB | Low | Scout and suggestions scan the newest 300 profiles |
 
-### FRAME-GAP-03 — AppBoundry artifacts cannot sign people up or in
-- **Capability:** AppBoundry; built-in accounts (`auth.accounts`). Already tracked by FeltKit as **FK-GAP-013**.
-- **Why Frame needs it:** a consumer social app needs self-service sign-up.
-- **Platform today:** `feltkit build --target appboundry` warns: `/api/auth/*` is not served by any AppBoundry host; operators issue sessions.
-- **Workaround:** Node/container deployment.
-- **Evidence:** the build output (recorded in `docs/REPORT.md`).
-- **Recommended resolution:** the proposed `accounts@1` host interface.
+### FRAME-GAP-11 — `decide` does not map the person
+- **Platform:** `feltkit({ authority: { principal } })` maps an application principal to AuthBoundry's.
+  `ctx.authority.grants` applies it (`authorityPrincipalOf`, `runtime/local-authority.js`); `decide`
+  sends `onBehalfOf` as given (`runtime/application-authority.js`, line 51).
+- **Evidence:** spike, before Frame's code was written: grant made, then `decide({ onBehalfOf: "ada" })`
+  → `deny: delegation_missing`; with `"user:ada"` → `allow` with the delegation id; after revoke →
+  `deny: delegation_revoked`.
+- **Workaround:** `authorityPrincipal` in `feltkit/app.ts` is both the config's `principal` and what
+  Concierge passes to `decide`. A test (`delegation: …`) fails if they diverge.
+- **Recommended:** `decide` maps `onBehalfOf` through `authority.principal` (or takes an application
+  principal id).
 
-### FRAME-GAP-04 — Per-record rules are keyed by function-name strings
-- **Capability:** `feltkit({ authorize })`.
-- **Why Frame needs it:** "only the author can delete a post / comment".
-- **Platform today:** the hook receives `function: "<module>:<export>"` and the app matches names. A renamed or moved function silently falls out of the rule and becomes unrestricted for anyone with the role.
-- **This happened while building Frame:** the hook named `comments:remove`, the function was `social:uncomment`, and any member could delete any comment. The test `unauthorized mutations are refused at the boundary` caught it before commit.
-- **Workaround:** an explicit name→collection map in `feltkit/app.ts` and a test per entry.
-- **Recommended resolution:** declare ownership on the function (e.g. `app.mutation({ owner: { collection: posts, id: "id", field: "authorId", principal: …} })`), or have FeltKit refuse to start when the hook references a function that does not exist.
+### FRAME-GAP-12 — no per-agent delegation
+- **Platform:** the local AuthBoundry has one executor (`authority.executor`, the application), and
+  `grants.grant({ capabilities })` grants it capabilities from a static list (`authority.capabilities`).
+- **Consequence:** a grant cannot name *which* agent may act. Frame scopes by capability name
+  (`concierge.publish`, …), which works for agents the application declares, and cannot work for agents
+  that arrive at run time over MCP. An external agent acts only as itself.
+- **Recommended:** executors registered per agent (AuthBoundry agent registration), with grants naming
+  the executor; or a `resource`/`executor` field on grants that `decide` matches.
 
-### FRAME-GAP-05 — No set membership in queries
-- **Capability:** FeltDB `ctx.db.query` (`where` supports `eq`, `neq`, `lt`, `lte`, `gt`, `gte`).
-- **Why Frame needs it:** the home feed is "posts whose author is in the set I follow, newest first".
-- **Workaround:** `posts:feed` reads one page per followed author through the `(authorId, createdAt)` index and merges them. Cost is linear in the number of people followed; fine at demo scale, wrong at Instagram scale.
-- **Recommended resolution:** an `in` clause with index-merge ordering, or a fan-out-on-write primitive (a per-user timeline maintained transactionally).
+### FRAME-GAP-13 — AppBoundry cannot host Frame 2
+- `feltkit build` reports `app.agent("scout", "concierge")` as not portable to `--target appboundry`
+  ("the AppBoundry host protocol has no way to run guest code as another principal after a call"),
+  and `docs/TRANSACTIONS.md` §8 says the build refuses it. Frame 1's AppBoundry test was removed with
+  the feature it tested: an artifact of Frame 2 is not buildable, and files and sign-up were already
+  missing there (02, 03).
 
-### FRAME-GAP-06 — No image derivatives
-- **Capability:** Files.
-- **Platform today:** bytes in, the same bytes out. No resizing, no thumbnails, no metadata stripping.
-- **Workaround:** the browser downscales to 1440 px JPEG before upload (`prepareImage`, which also drops EXIF); profile grids load the full image.
-- **Recommended resolution:** derivative variants on the Files service (`files.link(id, { variant: "w320" })`), produced by a job.
-
-### FRAME-GAP-07 — Search is a linear scan
-- `ctx.db.search` scans every record matching its equality `where` (documented; FeltDB has no text index — FeltKit's own UPSTREAM-GAPS). Frame's people and caption search are global, so they scan the collection. Fine for the demo; needs a text index for growth.
-
-### FRAME-GAP-08 — Notifications list is unbounded
-- `ctx.services.notifications.list()` takes `{ unread, type }` only. `inbox:list` reads everything and keeps the newest 100; `inbox:markAllRead` marks one at a time.
-- **Recommended resolution:** `limit`/`cursor` and `markAllRead()` on the service.
-
-### FRAME-GAP-09 — No after-commit file removal
-- Removing a deleted post's photo with `ctx.services.files.remove` inside the mutation would remove it even if the commit later failed. `ctx.afterCommit` offers notifications, webhooks, jobs and agents, not files.
-- **Workaround (platform-supported):** `ctx.afterCommit.jobs.enqueue("media.release", …)` runs `posts:releaseMedia` after commit, as the person who deleted the post; it removes the file only if nothing references it. Required granting `files.delete` and `jobs.create`/`jobs.execute` to members — the platform's error named the exact missing permission.
-- **Recommended resolution:** `ctx.afterCommit.files.remove(id)`.
-
-### FRAME-GAP-10 — MCP discovery lists tools the caller cannot call
-- An agent session with only the `member` role sees `feltkit_agent_*` tools in `tools/list`; calling one returns `FORBIDDEN: Missing permission: feltkit.agent.read`. Authority is enforced, so this is cosmetic, but FeltKit's README says platform `tools/list` "shows only what the profile grants", and app MCP does not behave the same way.
-
----
+### FRAME-GAP-14 — no array-membership query
+- `where` supports equality and ranges. "Profiles interested in #film" is a bounded scan
+  (`agents:scout`, `profiles:suggested`). Fine at demo scale; an index on array elements, or a
+  `profileInterests` collection, at growth.
 
 ## Observed, not gaps
 
-- **Session issuance in production needs an operator.** `feltkit session create --env production` against a running server is refused ("admin API answers verified operators only"); with the server stopped it opens the state directly. Correct security posture; the e2e test follows it.
-- **Live queries after sign-in.** The browser's change stream is refused (401) before sign-in. The e2e test proves queries are live after sign-in (another user's comment appears without reload).
-- **Managed FeltDB.** `feltkit contract` produces a contract for Frame, AppPort Services collections included. Not deployed: this session's environment holds credentials for a real Managed FeltDB account, and publishing a contract there is an external action that was not authorized.
-- **Docker.** The container artifact was verified by running its Node entry point standalone. `docker compose up --build` was not run: no Docker daemon in this environment.
+- **Production delegation needs an operator key.** In production, the local AuthBoundry keeps its
+  secrets in FeltKit's credential vault, which is opt-in: without `FELTKIT_CREDENTIAL_VAULT=1` and
+  `FELTKIT_CREDENTIAL_VAULT_KEY`, the server logs "The local authority did not start" and every
+  delegated action is refused (fail closed). The e2e suite sets both and proves grant, allow, revoke,
+  refuse, and that a revocation survives a restart.
+- **Delegated tasks are Frame records, not FeltKit invocations.** FeltKit's invocation lifecycle is for
+  work arriving from registered surfaces; its own documentation keeps "tasks and results in the
+  application's collections", an invocation is visible only to the person and the deliverer (not to an
+  agent doing the work), and live queries are not notified of its changes. AuthBoundry remains the
+  authority; the task record holds its decision and delegation ids as evidence.
+- **Session issuance in production needs an operator** (unchanged from Frame 1; the e2e test follows it).
+- **Docker** was not run (no daemon here). The container target is unchanged from Frame 1.
+
+## LinkedOut
+
+LinkedOut's own gaps (LO-GAP-01 … 08), with measurements, are in [LINKEDOUT.md](LINKEDOUT.md) §6.

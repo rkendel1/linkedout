@@ -1,12 +1,22 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { SignIn, useMutation, useQueryState, useSession } from "@feltdb/feltkit/react";
-import { Compass, Heart, House, SquarePlus } from "lucide-react";
+import { Bell, Briefcase, Compass, House, SquarePlus, Users } from "lucide-react";
+import type { ResultOf } from "@feltdb/feltkit/client";
 import { api } from "../feltkit/_generated/api";
-import { Avatar, Link, navigate, usePath } from "./lib";
-import { Create, Explore, Home, Notifications, PostView, Profile, Settings } from "./pages";
+import { AgentGlyph, Avatar, Link, usePath } from "./lib";
+import { Network, PersonPage } from "./network";
+import { Agents, Communities, CommunityPage, Create, Discover, Home, Notifications, PostView, Profile, Settings, TopicPage } from "./pages";
 
 export function App() {
-  const { session } = useSession();
+  const { session, signInAsDevUser } = useSession();
+  // Development (or a demo deployment): sign in as the first dev user so the app opens ready to use.
+  const tried = useRef(false);
+  useEffect(() => {
+    if (session && !session.principal && session.devUsers.length && !tried.current) {
+      tried.current = true;
+      void signInAsDevUser(session.devUsers[0]!.id);
+    }
+  }, [session, signInAsDevUser]);
   if (!session) return <Splash />;
   if (!session.principal) return <Welcome />;
   return <Signed key={session.principal.id} name={session.principal.displayName} />;
@@ -36,7 +46,7 @@ function Welcome() {
       </section>
       <section className="welcome-form">
         <Wordmark size={44} />
-        <p className="tagline">See the world through the people you follow.</p>
+        <p className="tagline">Where people and agents share, discover and work together.</p>
         <SignIn bare initialMode="sign-in" />
       </section>
     </main>
@@ -57,11 +67,12 @@ function Onboarding({ name }: { name?: string }) {
   const { signOut } = useSession();
   const [username, setUsername] = useState((name ?? "").toLowerCase().replace(/[^a-z0-9._]/g, "").slice(0, 30));
   const [displayName, setDisplayName] = useState(name ?? "");
+  const [interests, setInterests] = useState("");
   const [error, setError] = useState<string>();
   const submit = (e: FormEvent) => {
     e.preventDefault();
     setError(undefined);
-    create({ username, displayName }).catch((err: Error) => setError(err.message));
+    create({ username, displayName, interests: interests.split(/[,\s]+/).filter(Boolean) }).catch((err: Error) => setError(err.message));
   };
   return (
     <main className="welcome single">
@@ -77,6 +88,10 @@ function Onboarding({ name }: { name?: string }) {
           <span>Name</span>
           <input value={displayName} maxLength={60} required onChange={(e) => setDisplayName(e.target.value)} />
         </label>
+        <label className="field">
+          <span>Interests <span className="muted">(optional)</span></span>
+          <input value={interests} placeholder="film, travel, street" onChange={(e) => setInterests(e.target.value)} />
+        </label>
         {error && <p className="form-error" role="alert">{error}</p>}
         <button className="primary wide">Continue</button>
         <button type="button" className="link-btn" onClick={() => void signOut()}>Use another account</button>
@@ -85,17 +100,20 @@ function Onboarding({ name }: { name?: string }) {
   );
 }
 
-type Me = { id: string; username: string; displayName: string; avatarFileId?: string; bio?: string };
+type Me = NonNullable<ResultOf<typeof api.profiles.me>>;
 
 function Shell({ me }: { me: Me }) {
   const path = usePath();
   const unread = useQueryState(api.inbox.unreadCount);
-  const badge = (unread.data ?? 0) > 0 && !path.startsWith("/notifications");
-  const nav: Array<{ to: string; label: string; icon: ReactNode; mobile?: boolean }> = [
+  const badge = (unread.data?.count ?? 0) > 0 && !path.startsWith("/notifications");
+  const nav: Array<{ to: string; label: string; icon: ReactNode; desktop?: boolean }> = [
     { to: "/", label: "Home", icon: <House /> },
-    { to: "/explore", label: "Explore", icon: <Compass /> },
+    { to: "/network", label: "Network", icon: <Briefcase /> },
+    { to: "/discover", label: "Discover", icon: <Compass /> },
     { to: "/create", label: "Create", icon: <SquarePlus /> },
-    { to: "/notifications", label: "Notifications", icon: <span className="badge-wrap"><Heart />{badge && <span className="dot" aria-label="Unread" />}</span> },
+    { to: "/notifications", label: "Activity", icon: <span className="badge-wrap"><Bell />{badge && <span className="dot" aria-label={`${unread.data?.count}${unread.data?.complete === false ? "+" : ""} unread`} />}</span> },
+    { to: "/communities", label: "Communities", icon: <Users />, desktop: true },
+    { to: "/agents", label: "Agents", icon: <span className="nav-agent"><AgentGlyph size={22} /></span> },
     { to: `/u/${me.username}`, label: "Profile", icon: <Avatar user={me} size={26} /> },
   ];
   const active = (to: string) => (to === "/" ? path === "/" : path.startsWith(to));
@@ -117,7 +135,7 @@ function Shell({ me }: { me: Me }) {
         <Route path={path} me={me} />
       </main>
       <nav className="bottombar" aria-label="Main">
-        {nav.map((n) => (
+        {nav.filter((n) => !n.desktop).map((n) => (
           <Link key={n.to} to={n.to} className={`tab ${active(n.to) ? "active" : ""}`} aria-label={n.label} aria-current={active(n.to) ? "page" : undefined}>
             {n.icon}
           </Link>
@@ -128,16 +146,29 @@ function Shell({ me }: { me: Me }) {
 }
 
 function Route({ path, me }: { path: string; me: Me }) {
-  const [, section, arg] = path.split("/");
+  const [, section, arg] = path.split(/[?#]/)[0]!.split("/");
   useEffect(() => {
-    const titles: Record<string, string> = { explore: "Explore", create: "New post", notifications: "Notifications", settings: "Edit profile", p: "Post" };
+    const titles: Record<string, string> = { network: "Network", n: "Person", discover: "Discover", create: "New post", notifications: "Activity", settings: "Settings", p: "Post", agents: "Agents", t: "Topic", communities: "Communities", c: "Community" };
     document.title = section === "u" && arg ? `@${decodeURIComponent(arg)} · Frame` : titles[section ?? ""] ? `${titles[section!]} · Frame` : "Frame";
   }, [section, arg]);
   switch (section) {
     case "":
-      return <Home />;
+      return <Home me={me} />;
+    case "discover":
     case "explore":
-      return <Explore />;
+      return <Discover />;
+    case "t":
+      return arg ? <TopicPage key={arg} topic={decodeURIComponent(arg)} /> : <Discover />;
+    case "network":
+      return <Network key={arg ?? ""} tab={arg ?? ""} />;
+    case "n":
+      return arg ? <PersonPage key={arg} id={decodeURIComponent(arg)} /> : <Network tab="people" />;
+    case "agents":
+      return <Agents me={me} />;
+    case "communities":
+      return <Communities />;
+    case "c":
+      return arg ? <CommunityPage key={arg} slug={decodeURIComponent(arg)} /> : <Communities />;
     case "create":
       return <Create />;
     case "notifications":
@@ -145,9 +176,9 @@ function Route({ path, me }: { path: string; me: Me }) {
     case "settings":
       return <Settings me={me} />;
     case "u":
-      return arg ? <Profile key={arg} username={decodeURIComponent(arg)} /> : <Home />;
+      return arg ? <Profile key={arg} username={decodeURIComponent(arg)} /> : <Home me={me} />;
     case "p":
-      return arg ? <PostView key={arg} id={decodeURIComponent(arg)} /> : <Home />;
+      return arg ? <PostView key={arg} id={decodeURIComponent(arg)} /> : <Home me={me} />;
     default:
       return <div className="state"><h3>Page not found</h3><Link to="/">Go home</Link></div>;
   }
